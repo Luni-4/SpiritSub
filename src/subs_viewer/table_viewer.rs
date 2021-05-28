@@ -27,7 +27,11 @@ const CELL_PADDING: u16 = 4;
 const HEADER_TEXT_SIZE: u16 = 20;
 const CELL_TEXT_SIZE: u16 = 15;
 
-// #, Start, End, Style, Actor, Text, Note, Duration, CPS
+// Units length step (counted as the number of digits, 1 digit = 10 units)
+// for the number contained in the first cell of a row
+const FIRST_CELL_STEP: u16 = 10;
+
+// , Start, End, Style, Actor, Text, Note, Duration, CPS
 impl TableViewer {
     pub fn view<'a>(
         &'a mut self,
@@ -35,13 +39,15 @@ impl TableViewer {
         focused_row: usize,
     ) -> Element<Message> {
         let center_align = HorizontalAlignment::Center;
+        let max_first_cell_units =
+            subs_data.len().to_string().chars().count() as u16 * FIRST_CELL_STEP;
         let rows = subs_data
             .into_iter()
             .enumerate()
             .map(|(row, sub)| {
                 if focused_row == row {
                     Row::with_children(vec![
-                        Self::first_cell(row, true),
+                        Self::first_cell(row, max_first_cell_units, true),
                         Self::cell_row(row, &sub.start_time, center_align, true),
                         Self::cell_row(row, &sub.end_time, center_align, true),
                         Self::cell_row(row, sub.style_list.into(), center_align, true),
@@ -57,7 +63,7 @@ impl TableViewer {
                     .into()
                 } else {
                     Row::with_children(vec![
-                        Self::first_cell(row, false),
+                        Self::first_cell(row, max_first_cell_units, false),
                         Self::cell_row(row, &sub.start_time, center_align, false),
                         Self::cell_row(row, &sub.end_time, center_align, false),
                         Self::cell_row(row, sub.style_list.into(), center_align, false),
@@ -89,7 +95,7 @@ impl TableViewer {
         let final_column = Column::new()
             .width(Length::Fill)
             .height(Length::Fill)
-            .push(Self::create_header())
+            .push(Self::create_header(max_first_cell_units))
             .push(scrollable);
 
         Container::new(final_column)
@@ -99,9 +105,9 @@ impl TableViewer {
             .into()
     }
 
-    fn create_header<'a>() -> Element<'a, Message> {
+    fn create_header<'a>(length_units: u16) -> Element<'a, Message> {
         Row::with_children(vec![
-            Self::first_header(),
+            Self::first_header(length_units),
             Self::header_center("Start"),
             Self::header_center("End"),
             Self::header_center("Style"),
@@ -118,11 +124,11 @@ impl TableViewer {
     }
 
     #[inline(always)]
-    fn first_header<'a>() -> Element<'a, Message> {
+    fn first_header<'a>(length_units: u16) -> Element<'a, Message> {
         Cell::no_interactive("")
             .padding(CELL_PADDING)
             .size(HEADER_TEXT_SIZE)
-            .width(Length::Units(10))
+            .width(Length::Units(length_units))
             .style(style::Header)
             .horizontal_alignment(HorizontalAlignment::Center)
             .into()
@@ -148,12 +154,12 @@ impl TableViewer {
     }
 
     #[inline(always)]
-    fn first_cell<'a>(row: usize, is_focused: bool) -> Element<'a, Message> {
+    fn first_cell<'a>(row: usize, length_units: u16, is_focused: bool) -> Element<'a, Message> {
         let value = (row + 1).to_string();
         Cell::interactive(row, &value)
             .padding(CELL_PADDING)
             .size(CELL_TEXT_SIZE)
-            .width(Length::Units(10))
+            .width(Length::Units(length_units))
             .horizontal_alignment(HorizontalAlignment::Center)
             .style(style::FirstCell)
             .on_click(Message::CellClicked)
