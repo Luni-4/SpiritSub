@@ -1,11 +1,14 @@
 mod cell;
 mod subs_controls;
-mod table_viewer;
+//mod table_viewer;
+mod table_viewer2;
+
+use std::ops::Range;
 
 use iced::{Align, Column, Container, Element, Length};
 
 use subs_controls::{ActorList, StyleList, SubsControls};
-use table_viewer::TableViewer;
+use table_viewer2::TableViewer;
 
 const PADDING: u16 = 10;
 const COLUMN_SPACING: u16 = 40;
@@ -43,14 +46,14 @@ pub enum Message {
     // Subs Controller events
     SubsControls(subs_controls::Message),
     // Table viewer events
-    TableViewer(table_viewer::Message),
+    TableViewerClicked(usize),
 }
 
 pub struct SubsViewer {
     subs_controls: SubsControls,
-    table_viewer: TableViewer,
+    table_viewer: table_viewer2::State,
     controls_values: Vec<SubsControlsValues>,
-    focused_sub: usize,
+    focused_subs: Range<usize>,
 }
 
 impl SubsViewer {
@@ -62,39 +65,55 @@ impl SubsViewer {
         ];
         Self {
             subs_controls: SubsControls::default(),
-            table_viewer: TableViewer::default(),
+            table_viewer: table_viewer2::State::new(),
             controls_values,
-            focused_sub: 0,
+            focused_subs: Range { start: 0, end: 0 },
         }
     }
 
     pub fn update(&mut self, message: Message) {
         match message {
-            Message::SubsControls(message) => self
-                .subs_controls
-                .update(message, &mut self.controls_values[self.focused_sub]),
-            Message::TableViewer(message) => match message {
-                table_viewer::Message::CellClicked(row) => {
-                    self.focused_sub = row;
-                }
-            },
+            Message::SubsControls(message) => {
+                let focus_sub = if self.focused_subs.start == self.focused_subs.end {
+                    self.focused_subs.start
+                } else {
+                    self.focused_subs.end
+                };
+
+                self.subs_controls
+                    .update(message, &mut self.controls_values[focus_sub])
+            }
+            Message::TableViewerClicked(row) => {
+                self.focused_subs = Range {
+                    start: row,
+                    end: row,
+                };
+            }
         }
     }
 
     pub fn view(&mut self) -> Element<Message> {
+        let focus_sub = if self.focused_subs.start == self.focused_subs.end {
+            self.focused_subs.start
+        } else {
+            self.focused_subs.end
+        };
         let content = Column::new()
             .padding(PADDING)
             .spacing(COLUMN_SPACING)
             .align_items(Align::Center)
             .push(
                 self.subs_controls
-                    .view(&self.controls_values[self.focused_sub])
+                    .view(&self.controls_values[focus_sub])
                     .map(move |message| Message::SubsControls(message)),
             )
             .push(
-                self.table_viewer
-                    .view(&self.controls_values, self.focused_sub)
-                    .map(move |message| Message::TableViewer(message)),
+                TableViewer::new(
+                    &mut self.table_viewer,
+                    &self.controls_values,
+                    &self.focused_subs,
+                )
+                .on_click(Message::TableViewerClicked),
             );
 
         Container::new(content)
